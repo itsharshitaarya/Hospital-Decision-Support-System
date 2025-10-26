@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Decision Support System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .stat-card {
+            @apply bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow;
+        }
+        .stat-value {
+            @apply text-3xl font-bold text-blue-600;
+        }
+        .stat-label {
+            @apply text-gray-600 mt-2;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-6 shadow-md">
+            <div class="container mx-auto">
+                <h1 class="text-3xl font-bold">Hospital Decision Support System</h1>
+                <p class="mt-2">Data-driven insights for better patient care</p>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mx-auto px-6 py-4">
+                    {% for category, message in messages %}
+                        <div class="p-4 mb-4 text-sm rounded-lg {{ 'bg-green-100 text-green-700' if category == 'success' else 'bg-red-100 text-red-700' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Add Patient Section -->
+        <div class="container mx-auto px-6 py-4">
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-4">Add New Patient</h2>
+                <form method="POST" class="space-y-4">
+                    <input type="hidden" name="form_type" value="add_patient">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label for="patient_id" class="block text-sm font-medium text-gray-700">Patient ID</label>
+                            <input type="text" name="patient_id" id="patient_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="admission_date" class="block text-sm font-medium text-gray-700">Admission Date</label>
+                            <input type="date" name="admission_date" id="admission_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="admission_type" class="block text-sm font-medium text-gray-700">Type</label>
+                            <select name="admission_type" id="admission_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                                <option value="emergency">Emergency</option>
+                                <option value="urgent">Urgent</option>
+                                <option value="elective" selected>Elective</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors h-10 w-full">
+                                Add Patient
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="container mx-auto p-6">
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="stat-card">
+                    <div class="stat-value">{{ '%.1f'|format(readmission_rate) }}%</div>
+                    <div class="stat-label">Readmission Rate</div>
+                    <p class="text-sm text-gray-500 mt-2">Percentage of patients readmitted within 30 days</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ '%.1f'|format(avg_length_of_stay) }} days</div>
+                    <div class="stat-label">Average Length of Stay</div>
+                    <p class="text-sm text-gray-500 mt-2">Average duration of hospital stays</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ recent_admissions|length }}</div>
+                    <div class="stat-label">Recent Admissions</div>
+                    <p class="text-sm text-gray-500 mt-2">Most recent patient admissions</p>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Readmission Rate by Age Group</h2>
+                    <canvas id="ageChart"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Readmission Rate by Gender</h2>
+                    <canvas id="genderChart"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Readmission Rate by Admission Type</h2>
+                    <canvas id="admissionTypeChart"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Recent Admissions</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admission Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentAdmissions" class="bg-white divide-y divide-gray-200">
+                                {% for admission in recent_admissions %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ admission.patient_id }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ admission.admission_date }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                            {% if admission.admission_type == 'emergency' %}bg-red-100 text-red-800
+                                            {% elif admission.admission_type == 'urgent' %}bg-yellow-100 text-yellow-800
+                                            {% else %}bg-green-100 text-green-800{% endif %}">
+                                            {{ admission.admission_type|title }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-800 text-white p-6 mt-12">
+            <div class="container mx-auto text-center">
+                <p>© 2023 Hospital Decision Support System. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Fetch data from API endpoints
+        Promise.all([
+            fetch('/api/readmission_rates').then(res => res.json()),
+            fetch('/api/recent_admissions').then(res => res.json())
+        ]).then(([ratesData, admissionsData]) => {
+            // Update recent admissions
+            const recentAdmissions = document.getElementById('recentAdmissions');
+            recentAdmissions.innerHTML = admissionsData.recent_admissions.map(admission => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">${admission.patient_id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${admission.admission_date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${admission.admission_type === 'emergency' ? 'bg-red-100 text-red-800' : 
+                              admission.admission_type === 'urgent' ? 'bg-yellow-100 text-yellow-800' : 
+                              'bg-green-100 text-green-800'}">
+                            ${admission.admission_type.charAt(0).toUpperCase() + admission.admission_type.slice(1)}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Create charts
+            createBarChart('ageChart', 
+                Object.keys(ratesData.readmission_by_age), 
+                Object.values(ratesData.readmission_by_age),
+                'Readmission Rate (%)',
+                'rgba(54, 162, 235, 0.6)'
+            );
+
+            createBarChart('genderChart', 
+                Object.keys(ratesData.readmission_by_gender), 
+                Object.values(ratesData.readmission_by_gender),
+                'Readmission Rate (%)',
+                'rgba(255, 99, 132, 0.6)'
+            );
+
+            createBarChart('admissionTypeChart', 
+                Object.keys(ratesData.readmission_by_admission_type), 
+                Object.values(ratesData.readmission_by_admission_type),
+                'Readmission Rate (%)',
+                'rgba(75, 192, 192, 0.6)'
+            );
+        });
+
+        function createBarChart(canvasId, labels, data, label, backgroundColor) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: backgroundColor,
+                        borderColor: backgroundColor.replace('0.6', '1'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Readmission Rate (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: canvasId === 'ageChart' ? 'Age Group' : 
+                                      canvasId === 'genderChart' ? 'Gender' : 'Admission Type'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
